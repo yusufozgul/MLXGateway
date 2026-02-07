@@ -10,6 +10,7 @@ OpenAI-compatible API server for MLX framework. All-in-one package combining mlx
 - **Speech-to-Text** - Transcription and translation via mlx-audio
 - **Image Generation** - Text-to-image using mflux
 - **Model Management** - Model caching with configurable TTL and size limits
+- **Tool and Prompt Cache Support** - Using mlx-lm's tool calling and prompt cache support.
 - **OpenAI Compatible** - OpenAI API endpoints
 
 ## Installation
@@ -23,6 +24,11 @@ pip install -e .
 ```
 
 ## Usage
+
+download model with huggingface cli 
+```bash
+hf download mlx-community/Qwen3-4B-Instruct-2507-4bit
+```
 
 ```bash
 mlxgateway
