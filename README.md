@@ -13,6 +13,7 @@ OpenAI-compatible API server for MLX framework. All-in-one package combining mlx
 - **OpenAI Compatible** - OpenAI API endpoints
 
 ## Installation
+clone this project
 
 ```bash
 python3 -m venv ~/mlxgateway
