@@ -94,6 +94,10 @@ async def create_chat_completion(request: ChatCompletionRequest):
         has_multimodal = _has_multimodal_content(request.messages)
         extra_params = request.get_extra_params()
         
+        def progress_callback(processed: int, total: int):
+            progress_pct = (processed / total * 100) if total > 0 else 0
+            logger.debug(f"Prompt processing progress: {processed}/{total} ({progress_pct:.1f}%)")
+        
         # Get appropriate generator
         try:
             if has_multimodal:
@@ -136,6 +140,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
             if tools:
                 gen_kwargs["tools"] = tools
             gen_kwargs["use_cache"] = request.enable_cache if request.enable_cache is not None else True
+            gen_kwargs["progress_callback"] = progress_callback
         
         # Non-streaming response
         if not request.stream:

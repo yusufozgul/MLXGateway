@@ -140,7 +140,7 @@ class ChatGenerator:
             logger.error(f"Failed to parse tool call: {e}. Tool text: {tool_text[:200]}")
             return None
     
-    def _get_stream_params(self, prompt: str, max_tokens: Optional[int], temperature: float, top_p: float) -> dict:
+    def _get_stream_params(self, prompt: str, max_tokens: Optional[int], temperature: float, top_p: float, progress_callback=None) -> dict:
         params = {
             "model": self.mlx_model.model,
             "tokenizer": self.tokenizer,
@@ -152,6 +152,8 @@ class ChatGenerator:
         # Add prompt_cache if available
         if self.mlx_model.prompt_cache is not None:
             params["prompt_cache"] = self.mlx_model.prompt_cache
+        if progress_callback is not None:
+            params["prompt_progress_callback"] = progress_callback
             
         return params
 
@@ -163,6 +165,7 @@ class ChatGenerator:
         top_p: float = 1.0,
         use_cache: bool = True,
         tools: Optional[List[Dict]] = None,
+        progress_callback=None,
     ) -> Dict:
         prompt = self._prepare_prompt(messages, tools)
         prompt_tokens = self.tokenizer.encode(prompt)
@@ -174,7 +177,7 @@ class ChatGenerator:
         tool_calls = []
         prompt_tokens_count = completion_tokens_count = 0
         
-        for response in stream_generate(**self._get_stream_params(prompt, max_tokens, temperature, top_p)):
+        for response in stream_generate(**self._get_stream_params(prompt, max_tokens, temperature, top_p, progress_callback)):
             if response.finish_reason:
                 prompt_tokens_count = response.prompt_tokens
                 completion_tokens_count = response.generation_tokens
@@ -213,6 +216,7 @@ class ChatGenerator:
         top_p: float = 1.0,
         use_cache: bool = True,
         tools: Optional[List[Dict]] = None,
+        progress_callback=None,
     ) -> Generator[Dict, None, None]:
         prompt = self._prepare_prompt(messages, tools)
         prompt_tokens = self.tokenizer.encode(prompt)
@@ -224,7 +228,7 @@ class ChatGenerator:
         tool_idx = 0  # Track index for streaming tool calls
         made_tool_call = False  # Track if any tool calls were made
         
-        for response in stream_generate(**self._get_stream_params(prompt, max_tokens, temperature, top_p)):
+        for response in stream_generate(**self._get_stream_params(prompt, max_tokens, temperature, top_p, progress_callback)):
             content, reasoning, tool_text, in_reasoning, new_tool_state = self._process_token(
                 response, in_reasoning, in_tool_call, tool_text
             )
