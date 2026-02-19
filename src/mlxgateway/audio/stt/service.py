@@ -77,15 +77,20 @@ class STTService:
             logger.info(f"Loading STT model: {request.model}")
             model = load_model(request.model)
             
-            # Generate transcription
+            # Generate transcription (Qwen3-ASR expects language when given, not None)
             logger.info(f"Transcribing audio: {audio_path}")
+            gen_kwargs = {
+                "temperature": request.temperature,
+                "verbose": False,
+            }
+            if request.language is not None:
+                gen_kwargs["language"] = request.language
+            if request.prompt is not None:
+                gen_kwargs["initial_prompt"] = request.prompt
             result = generate_transcription(
                 model=model,
                 audio=audio_path,
-                language=request.language,
-                temperature=request.temperature,
-                initial_prompt=request.prompt,
-                verbose=False,
+                **gen_kwargs,
             )
             
             # Convert STTOutput to dict format

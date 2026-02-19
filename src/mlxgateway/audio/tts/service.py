@@ -12,62 +12,27 @@ class TTSService:
         self.model = model
         self.sample_audio_path = Path("sample.wav")
 
-    def _get_voice_config(self, voice: str, instruct: str, is_voice_design: bool) -> tuple[str, str, str]:
-        """Returns (voice_param, param_type, lang_code)"""
-        if instruct:
-            lang_code = "tr" if "türkçe" in instruct.lower() or "turkish" in instruct.lower() else "en"
-            return instruct, "instruct", lang_code
-        
-        if is_voice_design:
-            voice_map = {
-                "TR": ("Türkçe konuşan erkek sesi", "tr"),
-                "EN": ("A clear English male voice.", "en"),
-            }
-            voice_config = voice_map.get(voice.upper(), (voice, "en"))
-            return voice_config[0], "instruct", voice_config[1]
-        
-        # Handle standard TTS models
-        voice_map = {
-            "TR": ("af_sky", "tr"),
-            "EN": ("af_sky", "en"),
-        }
-        voice_config = voice_map.get(voice.upper(), (voice, "en"))
-        return voice_config[0], "voice", voice_config[1]
-    
     async def generate_speech(self, request: TTSRequest) -> bytes:
         try:
             logger.info(f"TTS request - model: {request.model}, voice: {request.voice}")
-            
-            is_voice_design = "voicedesign" in self.model.lower()
-            voice_param, param_type, lang_code = self._get_voice_config(
-                request.voice, 
-                request.instruct, 
-                is_voice_design
-            )
-            
             logger.info(f"Loading model: {self.model}")
             model = load_model(self.model)
-            
-            # Prepare parameters
+            instruct = (request.instruct or request.voice or "A clear neutral voice.").strip()
+            voice = (request.voice or "af_sky").strip()
             params = {
                 "text": request.input,
                 "model": model,
                 "speed": request.speed,
-                "lang_code": lang_code,
                 "file_prefix": str(self.sample_audio_path).rsplit(".", 1)[0],
                 "audio_format": request.response_format.value,
-                "sample_rate": 24000,
+                "sample_rate": 12000,
                 "join_audio": True,
-                "verbose": False,
+                "verbose": True,
+                "instruct": instruct,
+                "voice": voice,
             }
-            
-            # Add voice or instruct parameter
-            params[param_type] = voice_param
-            
-            # Add extra parameters
             params.update(request.get_extra_params() or {})
-            
-            logger.info(f"Generating audio - {param_type}: {voice_param}, lang: {lang_code}")
+            logger.info(f"Generating audio - instruct: {instruct!r}, voice: {voice!r}")
             generate_audio(**params)
 
             # Read and return audio

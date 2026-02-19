@@ -17,8 +17,8 @@ class TTSRequest(BaseModel):
     model: str = Field(..., description="TTS model to use")
     input: str = Field(..., description="Text to synthesize")
     voice: Optional[str] = Field(
-        default="af_sky", 
-        description="Voice to use for standard TTS models (e.g., 'af_sky', 'af_bella')"
+        default="Aiden", 
+        description="Voice to use for standard TTS models (e.g., 'Aiden', 'Ryan')"
     )
     instruct: Optional[str] = Field(
         default=None,
