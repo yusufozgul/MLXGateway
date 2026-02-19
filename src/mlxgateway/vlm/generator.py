@@ -207,7 +207,7 @@ class VLMGenerator:
             "processor": self.processor,
             "prompt": formatted_prompt,
             "max_tokens": max_tokens or self._max_tokens,
-            "verbose": False,
+            "verbose": True,
         }
         
         # Add media if present
@@ -222,12 +222,18 @@ class VLMGenerator:
         try:
             output = generate(**gen_kwargs)
             
-            # Count tokens
-            prompt_tokens = self._count_tokens(formatted_prompt)
-            completion_tokens = self._count_tokens(output)
+            # mlx_vlm.generate() returns GenerationResult (has .text, .prompt_tokens, .generation_tokens)
+            if hasattr(output, "text"):
+                text = output.text
+                prompt_tokens = getattr(output, "prompt_tokens", None) or self._count_tokens(formatted_prompt)
+                completion_tokens = getattr(output, "generation_tokens", None) or self._count_tokens(text)
+            else:
+                text = output if isinstance(output, str) else str(output)
+                prompt_tokens = self._count_tokens(formatted_prompt)
+                completion_tokens = self._count_tokens(text)
             
             return {
-                "text": output,
+                "text": text,
                 "reasoning": None,
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
