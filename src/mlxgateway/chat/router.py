@@ -170,25 +170,15 @@ async def create_chat_completion(request: ChatCompletionRequest):
         
         # Streaming response
         async def event_generator():
-            if has_multimodal:
-                result = generator.generate(**gen_kwargs)
-                tool_calls = _parse_tool_calls(result.get("tool_calls"))
-                
-                yield _create_chunk(completion_id, created, request.model, 
-                                   result["text"], result.get("reasoning"), tool_calls)
-                yield _create_chunk(completion_id, created, request.model, 
-                                   finish_reason="tool_calls" if tool_calls else "stop")
-            else:
-                for response in generator.generate_stream(**gen_kwargs):
-                    yield _create_chunk(
-                        completion_id, created, request.model,
-                        response['text'], response.get('reasoning'),
-                        _parse_tool_calls(response.get("tool_calls")),
-                        response['finish_reason']
-                    )
-                    if response['finish_reason']:
-                        break
-            
+            for response in generator.generate_stream(**gen_kwargs):
+                yield _create_chunk(
+                    completion_id, created, request.model,
+                    response['text'], response.get('reasoning'),
+                    _parse_tool_calls(response.get("tool_calls")),
+                    response['finish_reason']
+                )
+                if response['finish_reason']:
+                    break
             yield "data: [DONE]\n\n"
         
         return StreamingResponse(

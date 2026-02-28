@@ -2,11 +2,11 @@
 
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Generator, List, Optional
 from urllib.parse import urlparse
 
 import requests
-from mlx_vlm import generate
+from mlx_vlm import generate, stream_generate
 from mlx_vlm.prompt_utils import apply_chat_template
 
 from ..utils.logger import logger
@@ -151,6 +151,32 @@ class VLMGenerator:
                 pass
         return len(text) // 4  # Rough estimation
     
+    def _build_gen_kwargs(
+        self,
+        formatted_prompt: str,
+        media: Dict[str, List[str]],
+        max_tokens: Optional[int] = None,
+        temperature: float = 1.0,
+        top_p: float = 1.0,
+    ) -> Dict:
+        """Build kwargs for mlx_vlm generate/stream_generate."""
+        gen_kwargs = {
+            "model": self.model,
+            "processor": self.processor,
+            "prompt": formatted_prompt,
+            "max_tokens": max_tokens or self._max_tokens,
+            "temperature": temperature,
+            "top_p": top_p,
+            "verbose": True,
+        }
+        if media["images"]:
+            gen_kwargs["image"] = media["images"]
+        if media["audio"]:
+            gen_kwargs["audio"] = media["audio"]
+        if media["video"]:
+            gen_kwargs["video"] = media["video"]
+        return gen_kwargs
+    
     def generate(
         self,
         messages: List[Dict],
@@ -202,21 +228,9 @@ class VLMGenerator:
             raise ValueError(f"This model may not support the requested modalities: {str(e)}")
         
         # Prepare generation kwargs
-        gen_kwargs = {
-            "model": self.model,
-            "processor": self.processor,
-            "prompt": formatted_prompt,
-            "max_tokens": max_tokens or self._max_tokens,
-            "verbose": True,
-        }
-        
-        # Add media if present
-        if media["images"]:
-            gen_kwargs["image"] = media["images"]
-        if media["audio"]:
-            gen_kwargs["audio"] = media["audio"]
-        if media["video"]:
-            gen_kwargs["video"] = media["video"]
+        gen_kwargs = self._build_gen_kwargs(
+            formatted_prompt, media, max_tokens, temperature, top_p
+        )
         
         # Generate
         try:
@@ -240,4 +254,70 @@ class VLMGenerator:
             }
         except Exception as e:
             logger.error(f"VLM generation failed: {e}", exc_info=True)
+            raise
+    
+    def generate_stream(
+        self,
+        messages: List[Dict],
+        max_tokens: Optional[int] = None,
+        temperature: float = 1.0,
+        top_p: float = 1.0,
+        **kwargs
+    ) -> Generator[Dict, None, None]:
+        """
+        Stream completion for multimodal messages (token/segment level).
+        
+        Yields dicts compatible with chat router: text, reasoning, tool_calls,
+        finish_reason, prompt_tokens, completion_tokens.
+        """
+        media = self._extract_media_from_messages(messages)
+        prompt = self._build_text_prompt(messages)
+        num_images = len(media["images"])
+        num_audios = len(media["audio"])
+        num_videos = len(media["video"])
+        
+        if self.processor is None:
+            raise ValueError("Processor is not available for this model")
+        if self.config is None:
+            raise ValueError("Model config is not available")
+        
+        try:
+            formatted_prompt = apply_chat_template(
+                self.processor,
+                self.config,
+                prompt,
+                num_images=num_images,
+                num_audios=num_audios,
+            )
+        except TypeError as e:
+            logger.error(f"Chat template error: {e}", exc_info=True)
+            raise ValueError(f"This model may not support the requested modalities: {str(e)}")
+        
+        gen_kwargs = self._build_gen_kwargs(
+            formatted_prompt, media, max_tokens, temperature, top_p
+        )
+        
+        last = None
+        try:
+            for result in stream_generate(**gen_kwargs):
+                last = result
+                yield {
+                    "text": result.text,
+                    "reasoning": None,
+                    "tool_calls": None,
+                    "finish_reason": None,
+                    "prompt_tokens": result.prompt_tokens,
+                    "completion_tokens": result.generation_tokens,
+                }
+            if last is not None:
+                yield {
+                    "text": "",
+                    "reasoning": None,
+                    "tool_calls": None,
+                    "finish_reason": "stop",
+                    "prompt_tokens": last.prompt_tokens,
+                    "completion_tokens": last.generation_tokens,
+                }
+        except Exception as e:
+            logger.error(f"VLM stream generation failed: {e}", exc_info=True)
             raise
