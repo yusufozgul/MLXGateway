@@ -16,9 +16,9 @@ dependencies = [
     
     # MLX Libraries
     "mlx-lm==0.31.1",   # https://github.com/ml-explore/mlx-lm
-    "mlx-vlm==0.4.0",  # https://github.com/Blaizzy/mlx-vlm
-    "mlx-audio==0.4.1", # https://github.com/Blaizzy/mlx-audio
-    "mflux>=0.16.9",    # https://github.com/filipstrand/mflux 
+    "mlx-vlm==0.4.4",  # https://github.com/Blaizzy/mlx-vlm
+    "mlx-audio==0.4.2", # https://github.com/Blaizzy/mlx-audio
+    "mflux>=0.17.4",    # https://github.com/filipstrand/mflux 
     "huggingface-hub>=1.3.3",
     "torch>=2.0.0",
     "torchvision>=0.15.0",
